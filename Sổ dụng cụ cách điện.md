@@ -1,1 +1,0 @@
-Loại thiết bị Số hiệu Cấp điện áp Đơn vị / vị trí sử dụng Ngày thử nghiệm Chu kỳ thử (tháng) Kết quả Số biên bản thử nghiệm Đơn vị thử nghiệm Ghi chú
