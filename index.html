@@ -370,8 +370,8 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
       <label for="fPlant" class="span"><span>Nhà máy</span>
         <select id="fPlant">
           <option value="">Chọn nhà máy</option>
-          <option value="ialy">Nhà máy Ia Ly</option>
-          <option value="ialymr">Nhà máy Ia Ly mở rộng</option>
+          <option value="ialy">Nhà máy IaLy</option>
+          <option value="ialymr">Nhà máy IaLy mở rộng</option>
         </select>
       </label>
       <label for="fType"><span>Loại thiết bị</span>
@@ -434,7 +434,7 @@ var TYPES={
   mat:{label:"Thảm cách điện",short:"Thảm",cycle:12,color:"var(--t-mat)",icon:"mat"}
 };
 var TYPE_KEYS=["boot","glove","pole","mat"];
-var PLANTS={ialy:{label:"Nhà máy Ia Ly",short:"Ia Ly"},ialymr:{label:"Nhà máy Ia Ly mở rộng",short:"Ia Ly mở rộng"}};
+var PLANTS={ialy:{label:"Nhà máy IaLy",short:"Ia Ly"},ialymr:{label:"Nhà máy IaLy mở rộng",short:"Ia Ly mở rộng"}};
 var PLANT_KEYS=["ialy","ialymr"];
 var LS_PLANT="ccdc.plant";
 var RANK={fail:0,overdue:1,soon:2,ok:3};
@@ -819,8 +819,9 @@ function renderSide(){
   });
   box.appendChild(tn);
   box.appendChild(h("div",{class:"side-sec",text:"Chu kỳ thử mặc định"}));
-  box.appendChild(h("div",{class:"side-note"},[h("span",{text:"Ủng, găng"}),h("b",{text:"6 tháng"})]));
-  box.appendChild(h("div",{class:"side-note"},[h("span",{text:"Sào, thảm"}),h("b",{text:"12 tháng"})]));
+  box.appendChild(h("div",{class:"side-note"},[h("span",{text:"Ủng, găng, bút"}),h("b",{text:"6 tháng"})]));
+  box.appendChild(h("div",{class:"side-note"},[h("span",{text:"Sào"}),h("b",{text:"12 tháng"})]));
+  box.appendChild(h("div",{class:"side-note"},[h("span",{text:"Thảm"}),h("b",{text:"24 tháng"})]));
   if(S.canWrite&&S.items.some(function(i){return i.sample===true}))
     box.appendChild(h("div",{class:"side-foot"},[h("button",{type:"button",class:"btn sm wide",onclick:clearSamples},["Xóa dữ liệu mẫu"])]));
 }
