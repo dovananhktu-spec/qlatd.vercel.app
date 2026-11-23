@@ -28,6 +28,7 @@
   --t-glove:#EB6834;
   --t-pole:#1BAF7A;
   --t-mat:#EDA100;
+  --t-pen:#E87BA4;
   --crit:#D03B3B;
   --warn-mark:#EDA100;
   --ok-mark:#1BAF7A;
@@ -49,7 +50,7 @@
   :root:not([data-theme="light"]){
     --bg:#0D1117;--surface:#151B24;--surface-2:#1A212C;--surface-3:#222B38;--fg:#EAEEF4;--muted:#98A2B3;--line:#283241;
     --accent:#3987E5;--accent-fg:#0B1220;--accent-soft:#1A2B44;
-    --t-boot:#9085E9;--t-glove:#D95926;--t-pole:#199E70;--t-mat:#C98500;
+    --t-boot:#9085E9;--t-glove:#D95926;--t-pole:#199E70;--t-mat:#C98500;--t-pen:#D55181;
     --crit:#E66767;--warn-mark:#C98500;--ok-mark:#199E70;
     --bad:#FF8A80;--bad-bg:#3A1C1A;--warn:#F2C24B;--warn-bg:#352A0E;--warn-line:#C99A1D;--ok:#6FD39A;--ok-bg:#13301F;
     --hatch:rgba(255,255,255,.09);--dot:rgba(255,255,255,.18);
@@ -60,7 +61,7 @@
 :root[data-theme="dark"]{
   --bg:#0D1117;--surface:#151B24;--surface-2:#1A212C;--surface-3:#222B38;--fg:#EAEEF4;--muted:#98A2B3;--line:#283241;
   --accent:#3987E5;--accent-fg:#0B1220;--accent-soft:#1A2B44;
-  --t-boot:#9085E9;--t-glove:#D95926;--t-pole:#199E70;--t-mat:#C98500;
+  --t-boot:#9085E9;--t-glove:#D95926;--t-pole:#199E70;--t-mat:#C98500;--t-pen:#D55181;
   --crit:#E66767;--warn-mark:#C98500;--ok-mark:#199E70;
   --bad:#FF8A80;--bad-bg:#3A1C1A;--warn:#F2C24B;--warn-bg:#352A0E;--warn-line:#C99A1D;--ok:#6FD39A;--ok-bg:#13301F;
   --hatch:rgba(255,255,255,.09);--dot:rgba(255,255,255,.18);
@@ -370,14 +371,15 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
       <label for="fPlant" class="span"><span>Nhà máy</span>
         <select id="fPlant">
           <option value="">Chọn nhà máy</option>
-          <option value="ialy">Nhà máy IaLy</option>
-          <option value="ialymr">Nhà máy IaLy mở rộng</option>
+          <option value="ialy">Nhà máy Ia Ly</option>
+          <option value="ialymr">Nhà máy Ia Ly mở rộng</option>
         </select>
       </label>
       <label for="fType"><span>Loại thiết bị</span>
         <select id="fType">
           <option value="boot">Ủng cách điện</option>
           <option value="glove">Găng tay cách điện</option>
+          <option value="pen">Bút thử điện</option>
           <option value="pole">Sào cách điện</option>
           <option value="mat">Thảm cách điện</option>
         </select>
@@ -430,11 +432,12 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
 var TYPES={
   boot:{label:"Ủng cách điện",short:"Ủng",cycle:6,color:"var(--t-boot)",icon:"boot"},
   glove:{label:"Găng tay cách điện",short:"Găng",cycle:6,color:"var(--t-glove)",icon:"glove"},
+  pen:{label:"Bút thử điện",short:"Bút",cycle:6,color:"var(--t-pen)",icon:"pen"},
   pole:{label:"Sào cách điện",short:"Sào",cycle:12,color:"var(--t-pole)",icon:"pole"},
-  mat:{label:"Thảm cách điện",short:"Thảm",cycle:12,color:"var(--t-mat)",icon:"mat"}
+  mat:{label:"Thảm cách điện",short:"Thảm",cycle:24,color:"var(--t-mat)",icon:"mat"}
 };
-var TYPE_KEYS=["boot","glove","pole","mat"];
-var PLANTS={ialy:{label:"Nhà máy IaLy",short:"Ia Ly"},ialymr:{label:"Nhà máy IaLy mở rộng",short:"Ia Ly mở rộng"}};
+var TYPE_KEYS=["boot","glove","pen","pole","mat"];
+var PLANTS={ialy:{label:"Nhà máy Ia Ly",short:"Ia Ly"},ialymr:{label:"Nhà máy Ia Ly mở rộng",short:"Ia Ly mở rộng"}};
 var PLANT_KEYS=["ialy","ialymr"];
 var LS_PLANT="ccdc.plant";
 var RANK={fail:0,overdue:1,soon:2,ok:3};
@@ -489,6 +492,7 @@ var ICONS={
   upright:"M7 17L17 7M9 7h8v8",
   boot:"M8 3v9l-3 3v4h14v-3l-5-3V3z",
   glove:"M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 5a1.5 1.5 0 0 1 3 0v6M14 6.5a1.5 1.5 0 0 1 3 0V14c0 4-2 7-6 7s-6-3-6-6l-1-3a1.5 1.5 0 0 1 3-1l1 2",
+  pen:"M4 20l1-4L16 5l3 3L8 19zM14 7l3 3",
   pole:"M5 19L19 5M17 4l3 3M4 17l3 3",
   mat:"M4 9l3-3h13l-3 3zM4 9v8h13V9M17 17l3-3V6"
 };
@@ -617,7 +621,7 @@ function plantCards(){
   return wrap;
 }
 function stats(){
-  var all=rows(),c={all:all.length,fail:0,overdue:0,soon:0,ok:0,type:{boot:0,glove:0,pole:0,mat:0}};
+  var all=rows(),c={all:all.length,fail:0,overdue:0,soon:0,ok:0,type:{boot:0,glove:0,pen:0,pole:0,mat:0}};
   all.forEach(function(r){c[r.i.status]++;if(c.type[r.it.type]!=null)c.type[r.it.type]++});
   return {c:c,rows:all};
 }
@@ -906,7 +910,7 @@ function chartB(c){
   var all=rows(),per={};
   TYPE_KEYS.forEach(function(k){per[k]={n:0,ok:0}});
   all.forEach(function(r){var p=per[r.it.type];if(!p)return;p.n++;if(r.i.status==="ok"||r.i.status==="soon")p.ok++});
-  var bars=h("div",{class:"bars"},[h("div",{class:"target"},[h("span",{text:"Mục tiêu 100%"})])].concat(TYPE_KEYS.map(function(k){
+  var bars=h("div",{class:"bars"},[h("div",{class:"target"})].concat(TYPE_KEYS.map(function(k){
     var p=per[k],pct=p.n?Math.round(p.ok/p.n*100):0,tip=TYPES[k].label+": "+(p.n?pct+"% còn hạn ("+p.ok+"/"+p.n+" thiết bị)":"chưa có thiết bị");
     return h("div",{class:"bcol",tabindex:"0","data-tip":tip,"aria-label":tip},[
       h("span",{class:"bval"+(p.n?"":" zero"),text:p.n?pct+"%":"—"}),
@@ -915,7 +919,7 @@ function chartB(c){
     ]);
   })));
   return h("section",{class:"card chart","aria-label":"Tỷ lệ còn hạn theo loại thiết bị"},[
-    h("div",{class:"card-head"},[h("div",{},[h("h3",{text:"Tỷ lệ còn hạn theo loại"}),h("p",{text:"Thiết bị còn hạn và đạt trên tổng số mỗi loại"})])]),
+    h("div",{class:"card-head"},[h("div",{},[h("h3",{text:"Tỷ lệ còn hạn theo loại"}),h("p",{text:"Thiết bị còn hạn và đạt trên tổng số mỗi loại · đường nét đứt = mục tiêu 100%"})])]),
     bars,
     srTable("Tỷ lệ còn hạn theo loại",["Loại","Còn hạn","Tổng"],TYPE_KEYS.map(function(k){return [TYPES[k].label,per[k].ok,per[k].n]}))
   ]);
@@ -1007,11 +1011,11 @@ function viewList(){
   var st=h("div",{class:"seg",role:"group","aria-label":"Lọc theo trạng thái"},[["all","Tất cả"],["overdue","Quá hạn"],["soon","Sắp đến hạn"],["ok","Còn hạn"],["fail","Không đạt"]].map(function(d){
     return h("button",{type:"button","aria-pressed":S.status===d[0]?"true":"false",onclick:function(){S.status=d[0];render()}},[d[1]]);
   }));
-  var ty=h("div",{class:"seg",role:"group","aria-label":"Lọc theo loại thiết bị"},[["all","Mọi loại"],["boot","Ủng"],["glove","Găng"],["pole","Sào"],["mat","Thảm"]].map(function(d){
+  var ty=h("div",{class:"seg",role:"group","aria-label":"Lọc theo loại thiết bị"},[["all","Mọi loại"],["boot","Ủng"],["glove","Găng"],["pen","Bút"],["pole","Sào"],["mat","Thảm"]].map(function(d){
     return h("button",{type:"button","aria-pressed":S.type===d[0]?"true":"false",onclick:function(){S.type=d[0];render()}},[d[1]]);
   }));
   var tools=[search,st,ty];
-  if(S.items.length)tools.push(h("button",{type:"button",class:"btn",onclick:exportCsv},[ico("download",16),"Xuất CSV"]));
+  if(S.items.length)tools.push(h("button",{type:"button",class:"btn",onclick:exportExcel},[ico("download",16),"Xuất Excel"]));
   v.appendChild(h("div",{class:"toolbar"},tools));
   var lb=h("div",{id:"listBody"});
   v.appendChild(lb);
@@ -1115,7 +1119,7 @@ function renderRail(){
   warnSel.addEventListener("change",function(){S.warn=parseInt(this.value,10)||30;try{localStorage.setItem(LS_WARN,String(S.warn))}catch(e){}render()});
   var acts=[];
   if(S.canWrite)acts.push(h("button",{type:"button",class:"btn sm",onclick:function(){openDlg("add")}},[ico("plus",14),"Thêm"]));
-  if(S.items.length)acts.push(h("button",{type:"button",class:"btn sm",onclick:exportCsv},[ico("download",14),"Xuất CSV"]));
+  if(S.items.length)acts.push(h("button",{type:"button",class:"btn sm",onclick:exportExcel},[ico("download",14),"Xuất Excel"]));
   var body=[
     h("div",{class:"avatar"},[ico("bolt",30)]),
     h("h2",{class:"pname",text:S.plant==="all"?"Dụng cụ an toàn điện":plantLabel(S.plant)}),
@@ -1281,29 +1285,65 @@ function clearSamples(){
     Promise.resolve(store.remove(ids[i])).then(function(){next(i+1)}).catch(function(ex){toast(writeErrText(ex))});
   })(0);
 }
-function csvCell(v){
-  v=String(v==null?"":v).replace(/[\r\n]+/g," ");
-  if(/^[=+\-@\t]/.test(v))v="'"+v;
-  return '"'+v.replace(/"/g,'""')+'"';
+var XLSX_CRC=null;
+function crc32(u8){
+  if(!XLSX_CRC){XLSX_CRC=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;XLSX_CRC[n]=c>>>0}}
+  var c=0xFFFFFFFF;for(var i=0;i<u8.length;i++)c=XLSX_CRC[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;
 }
-function exportCsv(){
-  var head=["Nhà máy","Loại thiết bị","Số hiệu","Cấp điện áp","Đơn vị / vị trí","Ngày thử nghiệm","Chu kỳ (tháng)","Hạn thử tiếp theo","Trạng thái","Kết quả","Số biên bản","Đơn vị thử nghiệm","Ghi chú"];
-  var lines=[head.map(csvCell).join(",")];
-  rows().forEach(function(r){var it=r.it;
-    lines.push([plantLabel(it.plant),typeLabel(it.type),it.serial,it.voltage,it.location,fmt(it.testDate),it.cycle,r.i.next?fmt(r.i.next):"",STATUS_LABEL[r.i.status],it.result==="fail"?"Không đạt":"Đạt",it.report,it.lab,it.note].map(csvCell).join(","));
+function zipStore(files){
+  var enc=new TextEncoder(),parts=[],cen=[],off=0;
+  function u16(v){return [v&255,(v>>>8)&255]}
+  function u32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255]}
+  files.forEach(function(f){
+    var name=enc.encode(f[0]),data=enc.encode(f[1]),crc=crc32(data);
+    var lh=[].concat(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0));
+    parts.push(new Uint8Array(lh),name,data);
+    cen.push(new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off))),name);
+    off+=lh.length+name.length+data.length;
   });
-  var fname="so-dung-cu-cach-dien-"+todayISO()+".csv",content="﻿"+lines.join("\r\n");
+  var cs=0;cen.forEach(function(x){cs+=x.length});
+  var end=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cs),u32(off),u16(0)));
+  return new Blob(parts.concat(cen,[end]),{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+function xmlEsc(v){return String(v==null?"":v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function colName(i){return String.fromCharCode(65+i)}
+function buildXlsx(head,data,widths){
+  function row(r,vals,st){return '<row r="'+r+'">'+vals.map(function(v,i){
+    var ref=colName(i)+r;
+    if(typeof v==="number"&&isFinite(v))return '<c r="'+ref+'"'+(st?' s="'+st+'"':'')+'><v>'+v+'</v></c>';
+    return '<c r="'+ref+'" t="inlineStr"'+(st?' s="'+st+'"':'')+'><is><t xml:space="preserve">'+xmlEsc(v)+'</t></is></c>';
+  }).join("")+'</row>'}
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>'+
+    widths.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'}).join("")+'</cols><sheetData>'+
+    row(1,head,1)+data.map(function(r,i){return row(i+2,r,0)}).join("")+'</sheetData></worksheet>';
+  var X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  return zipStore([
+    ["[Content_Types].xml",X+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+    ["_rels/.rels",X+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ["xl/workbook.xml",X+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Thiết bị" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+    ["xl/_rels/workbook.xml.rels",X+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+    ["xl/styles.xml",X+'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>'],
+    ["xl/worksheets/sheet1.xml",sheet]
+  ]);
+}
+function exportExcel(){
+  var head=["Nhà máy","Loại thiết bị","Số hiệu","Cấp điện áp","Đơn vị / vị trí","Ngày thử nghiệm","Chu kỳ (tháng)","Hạn thử tiếp theo","Trạng thái","Kết quả","Số biên bản","Đơn vị thử nghiệm","Ghi chú"];
+  var data=rows().map(function(r){var it=r.it;
+    return [plantLabel(it.plant),typeLabel(it.type),it.serial,it.voltage,it.location,fmt(it.testDate),parseInt(it.cycle,10)||0,r.i.next?fmt(r.i.next):"",STATUS_LABEL[r.i.status],it.result==="fail"?"Không đạt":"Đạt",it.report,it.lab,it.note];
+  });
+  var fname="so-dung-cu-cach-dien-"+todayISO()+".xlsx",blob;
+  try{blob=buildXlsx(head,data,[22,20,18,12,30,16,14,16,14,12,16,20,28])}catch(e){toast("Không tạo được file Excel.");return}
   if(dlApi){
-    dlApi.save({filename:fname,data:content})
-      .then(function(){toast("Đã lưu file CSV")})
-      .catch(function(ex){if(!ex||ex.code!=="declined")toast("Không lưu được file CSV.")});
+    dlApi.save({filename:fname,data:blob})
+      .then(function(){toast("Đã lưu file Excel")})
+      .catch(function(ex){if(!ex||ex.code!=="declined")toast("Không lưu được file Excel.")});
     return;
   }
   try{
-    var blob=new Blob([content],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");
+    var a=document.createElement("a");
     a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();document.body.removeChild(a);
-    setTimeout(function(){URL.revokeObjectURL(a.href)},2000);toast("Đã tạo file CSV");
-  }catch(e){toast("Không tạo được file CSV.")}
+    setTimeout(function(){URL.revokeObjectURL(a.href)},2000);toast("Đã tạo file Excel");
+  }catch(e){toast("Không tạo được file Excel.")}
 }
 
 /* ---------- Gợi ý khi rê chuột ---------- */
