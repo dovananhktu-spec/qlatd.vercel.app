@@ -697,7 +697,7 @@ function makeSheetStore(url){
     busy=true;
     return call({action:"list"}).then(function(res){
       busy=false;
-      S.canWrite=(res.role==="edit");
+      S.canWrite=(res.role==="edit");S.guard=res.deleteGuard===true;
       var list=Array.isArray(res.items)?res.items:[];
       var sig=JSON.stringify(list);
       if(sig!==lastSig||hadError||!S.loaded){items=list;hadError=false;emit()}
@@ -1262,6 +1262,7 @@ function onDelete(){
   var btn=$("btnDel"),needPw=S.mode==="sheet",pw="";
   if(!needPw&&!D.delArmed){D.delArmed=true;btn.textContent="Bấm lần nữa để xóa";return}
   if(needPw){
+    if(S.guard!==true){showErr("Apps Script trên Google vẫn là bản cũ, chưa có mật khẩu xóa nên trang không cho xóa. Hãy dán Code.gs mới vào Apps Script rồi triển khai “Phiên bản mới”.");return}
     pw=$("fDelPw").value;
     if(!pw){showErr("Hãy nhập mật khẩu xóa rồi bấm “Xóa thiết bị”.");$("fDelPw").focus();return}
   }
