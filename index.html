@@ -325,6 +325,15 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
 .dlg-foot .spacer{flex:1 1 0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:10px;font-weight:500;z-index:70;max-width:calc(100vw - 32px)}
 
+@media (max-width:1500px){
+  .app{grid-template-columns:200px minmax(0,1fr) 260px}
+  .side{padding:14px 8px}
+  .rail{padding:14px 12px}
+  .tiles{grid-template-columns:1fr 1.25fr}
+  .view{padding:16px}
+  .mhead{padding:12px 16px}
+  .tabs{padding:0 16px}
+}
 @media (max-width:1180px){
   .app{grid-template-columns:232px minmax(0,1fr)}
   .rail{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));align-items:start}
@@ -352,7 +361,7 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
   .srow{grid-template-columns:44px minmax(0,1fr)}
   .srow .pill,.srow .btn{grid-column:2;justify-self:start}
 }
-@container (max-width:860px){
+@container (max-width:780px){
   .tbl-wrap{border:0;overflow:visible}
   .tbl{min-width:0}
   .tbl,.tbl tbody,.tbl tr,.tbl td{display:block}
@@ -419,7 +428,7 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
     <p class="err" id="fErr" role="alert" hidden></p>
     <div class="hist" id="hist" hidden></div>
     <div class="delbox" id="delBox" hidden>
-      <label for="fDelPw"><span>Nhập mật khẩu xác nhận để xóa thiết bị này</span><input id="fDelPw" type="password" autocomplete="off" maxlength="100" placeholder="Mật khẩu xác nhận"></label>
+      <label for="fDelPw"><span>Mật khẩu xóa (nhập rồi bấm “Xóa thiết bị”)</span><input id="fDelPw" type="password" autocomplete="off" maxlength="100" placeholder="Mật khẩu xác nhận"></label>
     </div>
     <div class="dlg-foot">
       <button type="button" class="btn danger" id="btnDel">Xóa thiết bị</button>
@@ -1231,7 +1240,7 @@ function openDlg(mode,id){
   $("btnSave").hidden=ro;
   $("btnSave").textContent=mode==="add"?"Thêm vào sổ":(mode==="retest"?"Lưu kết quả thử":"Lưu thay đổi");
   $("btnDel").hidden=ro||mode!=="edit";
-  $("btnDel").textContent="Xóa thiết bị";$("delBox").hidden=true;$("fDelPw").value="";
+  $("btnDel").textContent="Xóa thiết bị";$("delBox").hidden=!(S.mode==="sheet"&&!ro&&mode==="edit");$("fDelPw").value="";
   $("btnCancel").textContent=ro?"Đóng":"Hủy";
   renderHist(it,mode);updateNext();
   var dlg=$("dlg");
@@ -1276,18 +1285,14 @@ function onSubmit(ev){
 }
 function onDelete(){
   var btn=$("btnDel"),needPw=S.mode==="sheet",pw="";
-  if(!D.delArmed){
-    D.delArmed=true;btn.textContent=needPw?"Xác nhận xóa":"Bấm lần nữa để xóa";
-    if(needPw){$("delBox").hidden=false;$("fDelPw").value="";$("fDelPw").focus()}
-    return;
-  }
+  if(!needPw&&!D.delArmed){D.delArmed=true;btn.textContent="Bấm lần nữa để xóa";return}
   if(needPw){
     pw=$("fDelPw").value;
     if(!pw){showErr("Hãy nhập mật khẩu xác nhận để xóa.");$("fDelPw").focus();return}
   }
   showErr("");btn.disabled=true;
   Promise.resolve(store.remove(D.id,pw)).then(function(){closeDlg();toast("Đã xóa thiết bị")})
-    .catch(function(ex){showErr(writeErrText(ex));if(!(needPw&&ex&&ex.code==="bad_delete_code")){D.delArmed=false;btn.textContent="Xóa thiết bị";$("delBox").hidden=true}else{$("fDelPw").select()}})
+    .catch(function(ex){showErr(writeErrText(ex));D.delArmed=false;btn.textContent="Xóa thiết bị";if(needPw&&ex&&ex.code==="bad_delete_code")$("fDelPw").select()})
     .then(function(){btn.disabled=false});
 }
 
