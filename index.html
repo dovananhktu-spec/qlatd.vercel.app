@@ -95,6 +95,8 @@ svg{flex:none}
 .btn:hover{background:var(--surface-2)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .btn.primary:hover{filter:brightness(1.08)}
+.delbox{margin:0 18px 12px;padding:12px;border:1px solid var(--bad);border-radius:10px;background:var(--bad-bg)}
+.delbox label{display:flex;flex-direction:column;gap:6px;font-weight:500}
 .btn.danger{color:var(--bad);border-color:var(--bad)}
 .btn.sm{min-height:30px;padding:0 10px;font-size:13px}
 .btn.wide{width:100%;justify-content:flex-start;margin-bottom:8px}
@@ -400,6 +402,9 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
     <datalist id="voltList"><option value="0,4 kV"></option><option value="1 kV"></option><option value="6 kV"></option><option value="10 kV"></option><option value="22 kV"></option><option value="35 kV"></option><option value="110 kV"></option><option value="220 kV"></option><option value="500 kV"></option></datalist>
     <p class="err" id="fErr" role="alert" hidden></p>
     <div class="hist" id="hist" hidden></div>
+    <div class="delbox" id="delBox" hidden>
+      <label for="fDelPw"><span>Mật khẩu xóa (nhập mật khẩu rồi bấm “Xóa thiết bị”)</span><input id="fDelPw" type="password" autocomplete="off" maxlength="100" placeholder="Mật khẩu xóa"></label>
+    </div>
     <div class="dlg-foot">
       <button type="button" class="btn danger" id="btnDel">Xóa thiết bị</button>
       <span class="spacer"></span>
@@ -712,8 +717,8 @@ function makeSheetStore(url){
         emit();
       });
     },
-    remove:function(id){
-      return call({action:"remove",id:id}).then(function(){
+    remove:function(id,pw){
+      return call({action:"remove",id:id,deleteCode:pw||""}).then(function(){
         var i=idx(id);if(i>=0)items.splice(i,1);emit();
       });
     }
@@ -770,6 +775,7 @@ function onDbError(err){
 function writeErrText(ex){
   var c=ex&&ex.code;
   if(c==="read_only")return "Mã của bạn chỉ có quyền xem, không sửa được sổ.";
+  if(c==="bad_delete_code")return "Mật khẩu xóa không đúng.";
   if(c==="unauthorized")return "Mã truy cập không đúng hoặc đã đổi. Bấm “Đổi mã” để nhập lại.";
   if(c==="network")return "Không kết nối được Google Sheets. Kiểm tra mạng rồi thử lại.";
   if(c==="busy")return "Google Sheets đang bận. Thử lại sau ít giây.";
@@ -1209,7 +1215,7 @@ function openDlg(mode,id){
   $("btnSave").hidden=ro;
   $("btnSave").textContent=mode==="add"?"Thêm vào sổ":(mode==="retest"?"Lưu kết quả thử":"Lưu thay đổi");
   $("btnDel").hidden=ro||mode!=="edit";
-  $("btnDel").textContent="Xóa thiết bị";
+  $("btnDel").textContent="Xóa thiết bị";$("delBox").hidden=!(S.mode==="sheet"&&!ro&&mode==="edit");$("fDelPw").value="";
   $("btnCancel").textContent=ro?"Đóng":"Hủy";
   renderHist(it,mode);updateNext();
   var dlg=$("dlg");
@@ -1253,11 +1259,15 @@ function onSubmit(ev){
     .then(function(){btn.disabled=false});
 }
 function onDelete(){
-  var btn=$("btnDel");
-  if(!D.delArmed){D.delArmed=true;btn.textContent="Bấm lần nữa để xóa";return}
-  btn.disabled=true;
-  Promise.resolve(store.remove(D.id)).then(function(){closeDlg();toast("Đã xóa thiết bị")})
-    .catch(function(ex){showErr(writeErrText(ex));D.delArmed=false;btn.textContent="Xóa thiết bị"})
+  var btn=$("btnDel"),needPw=S.mode==="sheet",pw="";
+  if(!needPw&&!D.delArmed){D.delArmed=true;btn.textContent="Bấm lần nữa để xóa";return}
+  if(needPw){
+    pw=$("fDelPw").value;
+    if(!pw){showErr("Hãy nhập mật khẩu xóa rồi bấm “Xóa thiết bị”.");$("fDelPw").focus();return}
+  }
+  showErr("");btn.disabled=true;
+  Promise.resolve(store.remove(D.id,pw)).then(function(){closeDlg();toast("Đã xóa thiết bị")})
+    .catch(function(ex){showErr(writeErrText(ex));D.delArmed=false;btn.textContent="Xóa thiết bị";if(needPw&&ex&&ex.code==="bad_delete_code")$("fDelPw").select()})
     .then(function(){btn.disabled=false});
 }
 
