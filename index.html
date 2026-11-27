@@ -379,7 +379,7 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
     <ol class="imp-steps">
       <li>Tải <button type="button" class="linkbtn" id="impTpl">file Excel mẫu</button>, điền mỗi thiết bị một dòng (hoặc dùng file bạn đã xuất ra từ trang này).</li>
       <li>Cột bắt buộc: <b>Loại thiết bị</b>, <b>Số hiệu</b>, <b>Ngày thử nghiệm</b> (dạng 31/12/2026). Các cột khác có thể bỏ trống.</li>
-      <li>Chọn file bên dưới, kiểm tra kết quả rồi bấm nhập.</li>
+      <li>Chọn file bên dưới. Thiết bị đã có trong sổ (cùng nhà máy, loại, số hiệu) sẽ được <b>cập nhật theo file</b>; ô để trống trong file thì giữ nguyên dữ liệu cũ. Ngày thử mới hơn thì lần thử cũ được lưu vào lịch sử.</li>
     </ol>
     <label for="impPlant" class="imp-f"><span>Nhà máy dùng khi file không ghi nhà máy</span>
       <select id="impPlant"><option value="">Không chọn</option><option value="ialy">Nhà máy Ialy</option><option value="ialymr">Nhà máy Ialy mở rộng</option></select></label>
@@ -1501,6 +1501,32 @@ function impVolt(v){
   if(typeof v==="number")return String(v).replace(".",",")+" kV";
   return String(v==null?"":v).trim();
 }
+/* So khớp với thiết bị đã có (cùng nhà máy, loại, số hiệu): cập nhật theo file, ô trống trong file thì giữ nguyên dữ liệu cũ */
+var IMP_LABELS={voltage:"điện áp",location:"vị trí",testDate:"ngày thử",cycle:"chu kỳ",result:"kết quả",report:"số biên bản",lab:"đơn vị thử",note:"ghi chú"};
+function impPlan(r,old){
+  if(!old){r.action="new";r.data=null;return}
+  var d=Object.assign({},old),changed=[],hist=Array.isArray(old.history)?old.history.slice():[];
+  var newer=validISO(old.testDate)?r.testDate>old.testDate:true,same=r.testDate===old.testDate;
+  ["voltage","location","report","lab","note"].forEach(function(k){if(r[k]!==""&&r[k]!==(old[k]||"")){d[k]=r[k];changed.push(k)}});
+  if(newer){
+    if(validISO(old.testDate))hist.push({testDate:old.testDate,result:old.result==="fail"?"fail":"pass",report:old.report||"",lab:old.lab||"",cycle:old.cycle||r.cycle});
+    d.testDate=r.testDate;changed.push("testDate");
+    if(r.resultGiven&&r.result!==old.result)changed.push("result");
+    d.result=r.resultGiven?r.result:"pass";
+    if(!r.resultGiven&&old.result!=="pass")changed.push("result");
+    if(r.cycGiven)d.cycle=r.cycle;
+    if(+d.cycle!==+old.cycle)changed.push("cycle");
+    d.history=hist;
+  }else{
+    if(same&&r.resultGiven&&r.result!==old.result){d.result=r.result;changed.push("result")}
+    if(r.cycGiven&&r.cycle!==+old.cycle){d.cycle=r.cycle;changed.push("cycle")}
+  }
+  r.note2=newer?"":(same?"":"Ngày thử trong file cũ hơn trong sổ nên giữ nguyên lần thử mới hơn");
+  r.changed=changed;r.old=old;
+  if(!changed.length){r.action="same";r.data=null;return}
+  d.updatedAt=new Date().toISOString();d.lastAction=newer?"test":"edit";
+  r.action="update";r.data=d;
+}
 function parseImport(table,defPlant){
   var map={},hi=-1;
   for(var r=0;r<Math.min(table.length,10)&&hi<0;r++){
@@ -1508,7 +1534,7 @@ function parseImport(table,defPlant){
     if(m.serial!==undefined&&m.type!==undefined&&m.testDate!==undefined){hi=r;map=m}
   }
   if(hi<0)return {error:"Không tìm thấy dòng tiêu đề. File cần có tối thiểu các cột: Loại thiết bị, Số hiệu, Ngày thử nghiệm."};
-  var seen={};S.items.forEach(function(o){seen[(o.plant||"")+"|"+o.type+"|"+fold(o.serial)]=1});
+  var seen={},have={};S.items.forEach(function(o){have[(o.plant||"")+"|"+o.type+"|"+fold(o.serial)]=o});
   var today=todayISO(),out=[];
   for(var i=hi+1;i<table.length&&out.length<500;i++){
     var row=table[i]||[];
@@ -1524,31 +1550,35 @@ function parseImport(table,defPlant){
     else if(!date)err="Ngày thử nghiệm không hợp lệ (dùng dạng 31/12/2026)";
     else if(date>today)err="Ngày thử nghiệm sau hôm nay";
     else if(g("cycle")!==""&&!(cyc>=1&&cyc<=60))err="Chu kỳ phải từ 1 đến 60 tháng";
-    else{var key=plant+"|"+type+"|"+fold(serial);if(seen[key])err="Số hiệu đã có trong sổ hoặc bị trùng trong file";else seen[key]=1}
-    var res=fold(String(g("result")));
-    out.push({line:i+1,err:err,plant:plant,type:type,serial:serial,voltage:impVolt(g("voltage")),location:String(g("location")).trim(),testDate:date,
-      cycle:cyc>=1&&cyc<=60?cyc:(TYPES[type]?TYPES[type].cycle:6),result:/khong|fail|hong/.test(res)?"fail":"pass",
-      report:String(g("report")).trim(),lab:String(g("lab")).trim(),note:String(g("note")).trim()});
+    var key=plant+"|"+type+"|"+fold(serial);
+    if(!err){if(seen[key])err="Số hiệu bị trùng ở dòng "+seen[key]+" của file";else seen[key]=i+1}
+    var resTxt=fold(String(g("result"))),cycGiven=g("cycle")!=="";
+    var row2={line:i+1,err:err,plant:plant,type:type,serial:serial,voltage:impVolt(g("voltage")),location:String(g("location")).trim(),testDate:date,
+      cycle:cycGiven&&cyc>=1&&cyc<=60?cyc:(TYPES[type]?TYPES[type].cycle:6),cycGiven:cycGiven,resultGiven:resTxt!=="",result:/khong|fail|hong/.test(resTxt)?"fail":"pass",
+      report:String(g("report")).trim(),lab:String(g("lab")).trim(),note:String(g("note")).trim()};
+    if(!err)impPlan(row2,have[key]);
+    out.push(row2);
   }
   if(!out.length)return {error:"File không có dòng dữ liệu nào bên dưới dòng tiêu đề."};
   return {rows:out};
 }
 function renderImport(){
   var box=$("impBody");box.textContent="";
-  var rs=IMP.rows,ok=rs.filter(function(r){return !r.err}).length,bad=rs.length-ok;
-  IMP.ok=ok;
+  var rs=IMP.rows,bad=rs.filter(function(r){return r.err}).length;
+  var nNew=rs.filter(function(r){return !r.err&&r.action==="new"}).length,nUp=rs.filter(function(r){return !r.err&&r.action==="update"}).length,nSame=rs.filter(function(r){return !r.err&&r.action==="same"}).length;
+  var ok=nNew+nUp;IMP.ok=ok;
   if(!rs.length){$("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";return}
-  box.appendChild(h("p",{class:"imp-sum"},bad?[h("b",{text:ok+" dòng hợp lệ"})," · ",h("b",{class:"imp-badn",text:bad+" dòng lỗi (sẽ bỏ qua)"})]:[h("b",{text:ok+" dòng hợp lệ"})]));
+  box.appendChild(h("p",{class:"imp-sum"},[h("b",{text:nNew+" thêm mới"})," · ",h("b",{text:nUp+" cập nhật"})," · "+nSame+" không đổi"].concat(bad?[" · ",h("b",{class:"imp-badn",text:bad+" dòng lỗi (bỏ qua)"})]:[])));
   var tb=h("tbody");
   rs.slice(0,300).forEach(function(r){
     tb.appendChild(h("tr",{class:r.err?"imp-bad":""},[
       h("td",{text:String(r.line)}),h("td",{text:PLANTS[r.plant]?PLANTS[r.plant].short:"—"}),h("td",{text:TYPES[r.type]?TYPES[r.type].short:"—"}),
-      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{text:r.err||"Sẽ nhập"})]));
+      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{text:r.err||(r.action==="new"?"Thêm mới":(r.action==="update"?"Cập nhật: "+r.changed.map(function(k){return IMP_LABELS[k]}).join(", ")+(r.note2?" ("+r.note2+")":""):"Không thay đổi"))})]));
   });
   box.appendChild(h("div",{class:"imp-wrap"},[h("table",{class:"imp-tbl"},[
     h("thead",{},[h("tr",{},["Dòng","Nhà máy","Loại","Số hiệu","Ngày thử","Kết quả kiểm tra"].map(function(t){return h("th",{text:t})}))]),tb])]));
   if(rs.length>300)box.appendChild(h("p",{class:"a-sub",text:"Chỉ hiển thị 300 dòng đầu, các dòng còn lại vẫn được kiểm tra và nhập."}));
-  $("impGo").disabled=!ok||IMP.busy;$("impGo").textContent=ok?"Nhập "+ok+" thiết bị":"Không có dòng hợp lệ";
+  $("impGo").disabled=!ok||IMP.busy;$("impGo").textContent=ok?"Áp dụng "+ok+" thay đổi":(rs.length&&!bad?"Không có gì cần cập nhật":"Không có dòng hợp lệ");
 }
 function openImport(){
   if(!S.canWrite)return;
@@ -1576,21 +1606,22 @@ function onImpPlant(){
   renderImport();
 }
 function runImport(){
-  var list=IMP.rows.filter(function(r){return !r.err});
+  var list=IMP.rows.filter(function(r){return !r.err&&(r.action==="new"||r.action==="update")});
   if(!list.length||IMP.busy||!S.canWrite)return;
   IMP.busy=true;impError("");$("impGo").disabled=true;$("impCancel").disabled=true;
   var done=0;
   (function next(){
     if(done>=list.length){
-      IMP.busy=false;$("impCancel").disabled=false;closeImport();toast("Đã nhập "+done+" thiết bị");return;
+      IMP.busy=false;$("impCancel").disabled=false;closeImport();toast("Đã áp dụng "+done+" thay đổi");return;
     }
-    $("impGo").textContent="Đang nhập "+(done+1)+"/"+list.length+"…";
-    var r=list[done],now=new Date().toISOString();
-    var data={plant:r.plant,type:r.type,serial:r.serial,voltage:r.voltage,location:r.location,testDate:r.testDate,cycle:r.cycle,result:r.result,
-      report:r.report,lab:r.lab,note:r.note,history:[],sample:false,createdAt:now,updatedAt:now,lastAction:"add"};
-    Promise.resolve(store.save(newId(),data)).then(function(){done++;next()}).catch(function(ex){
+    $("impGo").textContent="Đang lưu "+(done+1)+"/"+list.length+"…";
+    var r=list[done],now=new Date().toISOString(),id,data;
+    if(r.action==="update"){id=r.old.id;data=Object.assign({},r.data);delete data.id}
+    else{id=newId();data={plant:r.plant,type:r.type,serial:r.serial,voltage:r.voltage,location:r.location,testDate:r.testDate,cycle:r.cycle,result:r.result,
+      report:r.report,lab:r.lab,note:r.note,history:[],sample:false,createdAt:now,updatedAt:now,lastAction:"add"}}
+    Promise.resolve(store.save(id,data)).then(function(){done++;next()}).catch(function(ex){
       IMP.busy=false;$("impCancel").disabled=false;
-      impError("Dừng lại sau khi nhập "+done+" thiết bị. "+writeErrText(ex)+" Các dòng đã nhập vẫn nằm trong sổ; bạn có thể chọn lại file, dòng đã có sẽ được bỏ qua.");
+      impError("Dừng lại sau khi lưu "+done+" dòng. "+writeErrText(ex)+" Các dòng đã lưu vẫn nằm trong sổ; bạn có thể chọn lại cùng file, dòng đã lưu sẽ hiện là “không thay đổi”.");
       IMP.rows=[];IMP.table=null;$("impFile").value="";$("impBody").textContent="";$("impGo").textContent="Nhập vào sổ";
     });
   })();
