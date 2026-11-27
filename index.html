@@ -318,6 +318,16 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
 .hist p{color:var(--muted);font-size:13px}
 .dlg-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--line);background:var(--surface-2)}
 .dlg-foot .spacer{flex:1 1 0}
+.imp-main{padding:14px 18px;display:flex;flex-direction:column;gap:12px}
+.imp-steps{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--muted)}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
+.imp-f{display:flex;flex-direction:column;gap:6px;font-weight:500}
+.imp-sum{margin:0}.imp-badn{color:var(--bad)}
+.imp-wrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.imp-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.imp-tbl th{position:sticky;top:0;background:var(--surface-2);text-align:left;padding:6px 8px;font-weight:600;color:var(--muted)}
+.imp-tbl td{padding:6px 8px;border-top:1px solid var(--line)}
+.imp-tbl tr.imp-bad td{background:var(--bad-bg);color:var(--bad)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:10px;font-weight:500;z-index:70;max-width:calc(100vw - 32px)}
 
 @media (max-width:1180px){
@@ -363,6 +373,22 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
   <aside class="rail" id="rail" aria-label="Tóm tắt"></aside>
 </div>
 
+<dialog id="impDlg" aria-labelledby="impTitle">
+  <div class="dlg-head"><h2 id="impTitle">Nhập thiết bị từ Excel</h2><button type="button" class="icon-btn" id="impClose" aria-label="Đóng">&times;</button></div>
+  <div class="imp-main">
+    <ol class="imp-steps">
+      <li>Tải <button type="button" class="linkbtn" id="impTpl">file Excel mẫu</button>, điền mỗi thiết bị một dòng (hoặc dùng file bạn đã xuất ra từ trang này).</li>
+      <li>Cột bắt buộc: <b>Loại thiết bị</b>, <b>Số hiệu</b>, <b>Ngày thử nghiệm</b> (dạng 31/12/2026). Các cột khác có thể bỏ trống.</li>
+      <li>Chọn file bên dưới, kiểm tra kết quả rồi bấm nhập.</li>
+    </ol>
+    <label for="impPlant" class="imp-f"><span>Nhà máy dùng khi file không ghi nhà máy</span>
+      <select id="impPlant"><option value="">Không chọn</option><option value="ialy">Nhà máy Ialy</option><option value="ialymr">Nhà máy Ialy mở rộng</option></select></label>
+    <label for="impFile" class="imp-f"><span>File Excel (.xlsx)</span><input type="file" id="impFile" accept=".xlsx"></label>
+    <p class="err" id="impErr" role="alert" hidden style="margin:0"></p>
+    <div id="impBody"></div>
+  </div>
+  <div class="dlg-foot"><span class="spacer"></span><button type="button" class="btn" id="impCancel">Đóng</button><button type="button" class="btn primary" id="impGo" disabled>Nhập vào sổ</button></div>
+</dialog>
 <dialog id="dlg" aria-labelledby="dlgTitle">
   <form id="f" novalidate>
     <div class="dlg-head">
@@ -484,6 +510,7 @@ var ICONS={
   calendar:"M7 3v4M17 3v4M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z",
   activity:"M3 12h4l3-8 4 16 3-8h4",
   download:"M12 4v11M7 11l5 5 5-5M5 20h14",
+  upload:"M12 16V5M7 9l5-5 5 5M5 20h14",
   search:"M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4",
   clock:"M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2",
   check:"M5 12l4 4 10-10",
@@ -815,6 +842,7 @@ function renderSide(){
   var st=stats(),c=st.c,box=$("side");box.textContent="";
   box.appendChild(h("div",{class:"side-head"},[h("span",{text:"Bộ lọc nhanh"}),ico("filter",16)]));
   if(S.canWrite)box.appendChild(h("button",{type:"button",class:"btn wide",onclick:function(){openDlg("add")}},[ico("plus",16),"Thêm thiết bị"]));
+  if(S.canWrite)box.appendChild(h("button",{type:"button",class:"btn wide",onclick:openImport},[ico("upload",16),"Nhập từ Excel"]));
   var onList=S.view==="list";
   var nav=h("div",{class:"nav"});
   [["all","Tất cả thiết bị","list",c.all,null],["overdue","Quá hạn","alert",c.overdue,"var(--crit)"],["soon","Sắp đến hạn","clock",c.soon,"var(--warn-mark)"],["ok","Còn hạn","check",c.ok,"var(--ok-mark)"],["fail","Không đạt","ban",c.fail,"var(--crit)"]].forEach(function(d){
@@ -1021,6 +1049,7 @@ function viewList(){
     return h("button",{type:"button","aria-pressed":S.type===d[0]?"true":"false",onclick:function(){S.type=d[0];render()}},[d[1]]);
   }));
   var tools=[search,st,ty];
+  if(S.canWrite)tools.push(h("button",{type:"button",class:"btn",onclick:openImport},[ico("upload",16),"Nhập Excel"]));
   if(S.items.length)tools.push(h("button",{type:"button",class:"btn",onclick:exportExcel},[ico("download",16),"Xuất Excel"]));
   v.appendChild(h("div",{class:"toolbar"},tools));
   var lb=h("div",{id:"listBody"});
@@ -1125,6 +1154,7 @@ function renderRail(){
   warnSel.addEventListener("change",function(){S.warn=parseInt(this.value,10)||30;try{localStorage.setItem(LS_WARN,String(S.warn))}catch(e){}render()});
   var acts=[];
   if(S.canWrite)acts.push(h("button",{type:"button",class:"btn sm",onclick:function(){openDlg("add")}},[ico("plus",14),"Thêm"]));
+  if(S.canWrite)acts.push(h("button",{type:"button",class:"btn sm",onclick:openImport},[ico("upload",14),"Nhập Excel"]));
   if(S.items.length)acts.push(h("button",{type:"button",class:"btn sm",onclick:exportExcel},[ico("download",14),"Xuất Excel"]));
   var body=[
     h("div",{class:"avatar"},[ico("bolt",30)]),
@@ -1357,6 +1387,215 @@ function exportExcel(){
   }catch(e){toast("Không tạo được file Excel.")}
 }
 
+/* ---------- Nhập từ Excel ---------- */
+var IMP={rows:[],ok:0,busy:false};
+function saveFile(fname,blob,okMsg){
+  if(dlApi){
+    dlApi.save({filename:fname,data:blob}).then(function(){toast(okMsg)}).catch(function(ex){if(!ex||ex.code!=="declined")toast("Không lưu được file.")});
+    return;
+  }
+  try{
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(a.href)},2000);toast(okMsg);
+  }catch(e){toast("Không tạo được file.")}
+}
+function downloadTemplate(){
+  var head=["Nhà máy","Loại thiết bị","Số hiệu","Cấp điện áp","Đơn vị / vị trí","Ngày thử nghiệm","Chu kỳ (tháng)","Kết quả","Số biên bản","Đơn vị thử nghiệm","Ghi chú"];
+  var data=[
+    ["Nhà máy Ialy","Găng tay cách điện","(Ví dụ) G-001","22 kV","Gian máy H1","08/10/2026",6,"Đạt","BB-01","PXSC","Dòng này là ví dụ, xóa trước khi nhập"],
+    ["Nhà máy Ialy mở rộng","Bút thử điện","(Ví dụ) B-001","500 kV","TTĐK","08/10/2026",6,"Đạt","","PXSC",""]
+  ];
+  var blob;try{blob=buildXlsx(head,data,[22,20,16,12,24,16,14,10,14,18,34])}catch(e){toast("Không tạo được file mẫu.");return}
+  saveFile("mau-nhap-thiet-bi.xlsx",blob,"Đã tạo file mẫu");
+}
+/* Đọc .xlsx: giải nén zip bằng DecompressionStream của trình duyệt, đọc sheet đầu tiên */
+function readZip(buf){
+  var dv=new DataView(buf),u8=new Uint8Array(buf),i=u8.length-22;
+  while(i>=0&&dv.getUint32(i,true)!==0x06054b50)i--;
+  if(i<0)return Promise.reject(new Error("zip"));
+  var n=dv.getUint16(i+10,true),p=dv.getUint32(i+16,true),files={},dec=new TextDecoder();
+  for(var k=0;k<n;k++){
+    var meth=dv.getUint16(p+10,true),csz=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),off=dv.getUint32(p+42,true);
+    var name=dec.decode(u8.subarray(p+46,p+46+nl));
+    files[name]={meth:meth,csz:csz,off:off};
+    p+=46+nl+el+cl;
+  }
+  function get(name){
+    var f=files[name];if(!f)return Promise.resolve(null);
+    var lo=f.off,start=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true),raw=u8.subarray(start,start+f.csz);
+    if(f.meth===0)return Promise.resolve(dec.decode(raw));
+    if(f.meth!==8||typeof DecompressionStream==="undefined")return Promise.reject(new Error("method"));
+    var ds=new DecompressionStream("deflate-raw");
+    return new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer().then(function(b){return dec.decode(b)});
+  }
+  return Promise.resolve({get:get,has:function(n){return !!files[n]}});
+}
+function xmlDoc(t){return new DOMParser().parseFromString(t,"application/xml")}
+function colIdx(ref){var m=/^([A-Z]+)/.exec(ref),n=0;if(!m)return 0;for(var i=0;i<m[1].length;i++)n=n*26+m[1].charCodeAt(i)-64;return n-1}
+function readXlsx(buf){
+  return readZip(buf).then(function(z){
+    return Promise.all([z.get("xl/workbook.xml"),z.get("xl/_rels/workbook.xml.rels"),z.get("xl/sharedStrings.xml")]).then(function(a){
+      var target="worksheets/sheet1.xml";
+      if(a[0]&&a[1]){
+        var sh=xmlDoc(a[0]).getElementsByTagName("sheet")[0],rid=sh&&(sh.getAttribute("r:id")||sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id"));
+        var rels=xmlDoc(a[1]).getElementsByTagName("Relationship");
+        for(var i=0;i<rels.length;i++)if(rels[i].getAttribute("Id")===rid){target=rels[i].getAttribute("Target").replace(/^\/?(xl\/)?/,"");break}
+      }
+      var shared=[];
+      if(a[2]){var sis=xmlDoc(a[2]).getElementsByTagName("si");for(var j=0;j<sis.length;j++){var ts=sis[j].getElementsByTagName("t"),s="";for(var q=0;q<ts.length;q++)s+=ts[q].textContent;shared.push(s)}}
+      return z.get("xl/"+target).then(function(x){
+        if(!x)throw new Error("sheet");
+        var rowsEl=xmlDoc(x).getElementsByTagName("row"),out=[];
+        for(var r=0;r<rowsEl.length;r++){
+          var cs=rowsEl[r].getElementsByTagName("c"),row=[];
+          for(var c=0;c<cs.length;c++){
+            var ce=cs[c],t=ce.getAttribute("t"),v=ce.getElementsByTagName("v")[0],val="";
+            if(t==="inlineStr"){var tt=ce.getElementsByTagName("t");for(var m=0;m<tt.length;m++)val+=tt[m].textContent}
+            else if(v){val=v.textContent;if(t==="s")val=shared[+val]||"";else if(t==="b")val=val==="1"?"TRUE":"FALSE";else if(t!=="str"&&t!=="e"&&val!==""&&!isNaN(+val))val=+val}
+            row[colIdx(ce.getAttribute("r")||"")]=val;
+          }
+          out.push(row);
+        }
+        return out;
+      });
+    });
+  });
+}
+function impHeader(txt){
+  var f=fold(txt).replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+  if(/^nha may/.test(f))return "plant";
+  if(/^loai/.test(f))return "type";
+  if(/so hieu|^serial/.test(f))return "serial";
+  if(/dien ap/.test(f))return "voltage";
+  if(/vi tri/.test(f))return "location";
+  if(/bien ban/.test(f))return "report";
+  if(/^don vi thu/.test(f))return "lab";
+  if(/^ngay thu/.test(f))return "testDate";
+  if(/^chu ky/.test(f))return "cycle";
+  if(/^ket qua/.test(f))return "result";
+  if(/ghi chu/.test(f))return "note";
+  return null;
+}
+function impType(v){
+  var f=fold(v).replace(/[^a-z0-9 ]/g," ").trim();
+  if(TYPES[f])return f;
+  if(/^ung/.test(f))return "boot";if(/^gang/.test(f))return "glove";if(/^but/.test(f))return "pen";if(/^sao/.test(f))return "pole";if(/^tham/.test(f))return "mat";
+  return "";
+}
+function impPlant(v,def){
+  var f=fold(v).replace(/[^a-z0-9 ]/g,"");
+  if(!f)return def||"";
+  if(/mo rong|mr$/.test(f)||/mrong/.test(f))return "ialymr";
+  if(/ia ?ly/.test(f))return "ialy";
+  return "?";
+}
+function impDate(v){
+  if(typeof v==="number"&&v>20000&&v<80000){var t=new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000);return isoOf(t.getUTCFullYear(),t.getUTCMonth()+1,t.getUTCDate())}
+  var s=String(v==null?"":v).trim(),m;
+  if((m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s)))return validISO(isoOf(+m[1],+m[2],+m[3]))?isoOf(+m[1],+m[2],+m[3]):"";
+  if((m=/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(s))){var d=isoOf(+m[3],+m[2],+m[1]);return validISO(d)&&new Date(parseISO(d)).getUTCDate()===+m[1]?d:""}
+  return "";
+}
+function impVolt(v){
+  if(typeof v==="number")return String(v).replace(".",",")+" kV";
+  return String(v==null?"":v).trim();
+}
+function parseImport(table,defPlant){
+  var map={},hi=-1;
+  for(var r=0;r<Math.min(table.length,10)&&hi<0;r++){
+    var cnt=0,m={};(table[r]||[]).forEach(function(c,i){var k=impHeader(c);if(k&&!(k in m)){m[k]=i;cnt++}});
+    if(m.serial!==undefined&&m.type!==undefined&&m.testDate!==undefined){hi=r;map=m}
+  }
+  if(hi<0)return {error:"Không tìm thấy dòng tiêu đề. File cần có tối thiểu các cột: Loại thiết bị, Số hiệu, Ngày thử nghiệm."};
+  var seen={};S.items.forEach(function(o){seen[(o.plant||"")+"|"+o.type+"|"+fold(o.serial)]=1});
+  var today=todayISO(),out=[];
+  for(var i=hi+1;i<table.length&&out.length<500;i++){
+    var row=table[i]||[];
+    function g(k){return map[k]===undefined?"":(row[map[k]]==null?"":row[map[k]])}
+    var empty=true;for(var q=0;q<row.length;q++)if(row[q]!==""&&row[q]!=null)empty=false;
+    if(empty)continue;
+    var serial=String(g("serial")).trim();
+    if(/^\(ví dụ\)/i.test(serial))continue;
+    var type=impType(String(g("type"))),plant=map.plant===undefined?(defPlant||""):impPlant(String(g("plant")),defPlant),date=impDate(g("testDate")),cyc=parseInt(g("cycle"),10),err="";
+    if(!serial)err="Thiếu số hiệu";
+    else if(!type)err="Loại thiết bị không nhận ra: “"+String(g("type")).trim()+"”";
+    else if(!PLANTS[plant])err=plant==="?"?"Nhà máy không nhận ra: “"+String(g("plant")).trim()+"”":"Chưa chọn nhà máy";
+    else if(!date)err="Ngày thử nghiệm không hợp lệ (dùng dạng 31/12/2026)";
+    else if(date>today)err="Ngày thử nghiệm sau hôm nay";
+    else if(g("cycle")!==""&&!(cyc>=1&&cyc<=60))err="Chu kỳ phải từ 1 đến 60 tháng";
+    else{var key=plant+"|"+type+"|"+fold(serial);if(seen[key])err="Số hiệu đã có trong sổ hoặc bị trùng trong file";else seen[key]=1}
+    var res=fold(String(g("result")));
+    out.push({line:i+1,err:err,plant:plant,type:type,serial:serial,voltage:impVolt(g("voltage")),location:String(g("location")).trim(),testDate:date,
+      cycle:cyc>=1&&cyc<=60?cyc:(TYPES[type]?TYPES[type].cycle:6),result:/khong|fail|hong/.test(res)?"fail":"pass",
+      report:String(g("report")).trim(),lab:String(g("lab")).trim(),note:String(g("note")).trim()});
+  }
+  if(!out.length)return {error:"File không có dòng dữ liệu nào bên dưới dòng tiêu đề."};
+  return {rows:out};
+}
+function renderImport(){
+  var box=$("impBody");box.textContent="";
+  var rs=IMP.rows,ok=rs.filter(function(r){return !r.err}).length,bad=rs.length-ok;
+  IMP.ok=ok;
+  if(!rs.length){$("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";return}
+  box.appendChild(h("p",{class:"imp-sum"},bad?[h("b",{text:ok+" dòng hợp lệ"})," · ",h("b",{class:"imp-badn",text:bad+" dòng lỗi (sẽ bỏ qua)"})]:[h("b",{text:ok+" dòng hợp lệ"})]));
+  var tb=h("tbody");
+  rs.slice(0,300).forEach(function(r){
+    tb.appendChild(h("tr",{class:r.err?"imp-bad":""},[
+      h("td",{text:String(r.line)}),h("td",{text:PLANTS[r.plant]?PLANTS[r.plant].short:"—"}),h("td",{text:TYPES[r.type]?TYPES[r.type].short:"—"}),
+      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{text:r.err||"Sẽ nhập"})]));
+  });
+  box.appendChild(h("div",{class:"imp-wrap"},[h("table",{class:"imp-tbl"},[
+    h("thead",{},[h("tr",{},["Dòng","Nhà máy","Loại","Số hiệu","Ngày thử","Kết quả kiểm tra"].map(function(t){return h("th",{text:t})}))]),tb])]));
+  if(rs.length>300)box.appendChild(h("p",{class:"a-sub",text:"Chỉ hiển thị 300 dòng đầu, các dòng còn lại vẫn được kiểm tra và nhập."}));
+  $("impGo").disabled=!ok||IMP.busy;$("impGo").textContent=ok?"Nhập "+ok+" thiết bị":"Không có dòng hợp lệ";
+}
+function openImport(){
+  if(!S.canWrite)return;
+  IMP.rows=[];IMP.busy=false;$("impFile").value="";$("impErr").hidden=true;$("impBody").textContent="";
+  $("impPlant").value=PLANTS[S.plant]?S.plant:"";
+  $("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";
+  var d=$("impDlg");try{d.showModal()}catch(e){d.setAttribute("open","")}
+}
+function closeImport(){if(IMP.busy)return;var d=$("impDlg");try{d.close()}catch(e){d.removeAttribute("open")}}
+function impError(msg){var e=$("impErr");e.textContent=msg;e.hidden=!msg}
+function onImpFile(){
+  var f=$("impFile").files&&$("impFile").files[0];IMP.rows=[];impError("");$("impBody").textContent="";
+  if(!f){renderImport();return}
+  if(!/\.xlsx$/i.test(f.name)){impError("Chỉ đọc được file Excel đuôi .xlsx. Nếu là .xls hoặc .csv, hãy mở bằng Excel rồi Lưu thành .xlsx.");renderImport();return}
+  f.arrayBuffer().then(readXlsx).then(function(table){
+    var res=parseImport(table,$("impPlant").value);
+    if(res.error){impError(res.error);IMP.rows=[]}else IMP.rows=res.rows;
+    IMP.table=table;renderImport();
+  }).catch(function(){impError("Không đọc được file này. Hãy dùng file .xlsx lưu từ Excel (có thể tải file mẫu bên trên).");IMP.rows=[];renderImport()});
+}
+function onImpPlant(){
+  if(!IMP.table)return;
+  var res=parseImport(IMP.table,$("impPlant").value);
+  if(res.error){impError(res.error);IMP.rows=[]}else{impError("");IMP.rows=res.rows}
+  renderImport();
+}
+function runImport(){
+  var list=IMP.rows.filter(function(r){return !r.err});
+  if(!list.length||IMP.busy||!S.canWrite)return;
+  IMP.busy=true;impError("");$("impGo").disabled=true;$("impCancel").disabled=true;
+  var done=0;
+  (function next(){
+    if(done>=list.length){
+      IMP.busy=false;$("impCancel").disabled=false;closeImport();toast("Đã nhập "+done+" thiết bị");return;
+    }
+    $("impGo").textContent="Đang nhập "+(done+1)+"/"+list.length+"…";
+    var r=list[done],now=new Date().toISOString();
+    var data={plant:r.plant,type:r.type,serial:r.serial,voltage:r.voltage,location:r.location,testDate:r.testDate,cycle:r.cycle,result:r.result,
+      report:r.report,lab:r.lab,note:r.note,history:[],sample:false,createdAt:now,updatedAt:now,lastAction:"add"};
+    Promise.resolve(store.save(newId(),data)).then(function(){done++;next()}).catch(function(ex){
+      IMP.busy=false;$("impCancel").disabled=false;
+      impError("Dừng lại sau khi nhập "+done+" thiết bị. "+writeErrText(ex)+" Các dòng đã nhập vẫn nằm trong sổ; bạn có thể chọn lại file, dòng đã có sẽ được bỏ qua.");
+      IMP.rows=[];IMP.table=null;$("impFile").value="";$("impBody").textContent="";$("impGo").textContent="Nhập vào sổ";
+    });
+  })();
+}
+
 /* ---------- Gợi ý khi rê chuột ---------- */
 function setupTip(){
   var tip=$("tip");
@@ -1391,6 +1630,9 @@ function wire(){
   window.addEventListener("hashchange",function(){var v=viewFromHash();if(v&&v!==S.view){S.view=v;render()}});
   $("f").addEventListener("submit",onSubmit);
   $("btnDel").addEventListener("click",onDelete);
+  $("impTpl").addEventListener("click",downloadTemplate);$("impFile").addEventListener("change",onImpFile);$("impPlant").addEventListener("change",onImpPlant);
+  $("impGo").addEventListener("click",runImport);$("impCancel").addEventListener("click",closeImport);$("impClose").addEventListener("click",closeImport);
+  $("impDlg").addEventListener("click",function(e){if(e.target===this)closeImport()});
   $("btnCancel").addEventListener("click",closeDlg);
   $("dlgClose").addEventListener("click",closeDlg);
   $("dlg").addEventListener("click",function(e){if(e.target===this)closeDlg()});
