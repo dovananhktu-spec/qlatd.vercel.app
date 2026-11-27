@@ -322,11 +322,13 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
 .imp-steps{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--muted)}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
 .imp-f{display:flex;flex-direction:column;gap:6px;font-weight:500}
-.imp-miss{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--bad);border-radius:10px;background:var(--bad-bg)}
-.imp-chk{display:flex;gap:8px;align-items:flex-start;font-weight:600}
-.imp-chk input{width:auto;min-height:0;flex:none;padding:0;margin:3px 0 0}
+.imp-tbl tr.imp-chg td:last-child,.imp-tbl tr.imp-del td:last-child{color:var(--bad);font-weight:600}
+.imp-tbl tr.imp-del td{text-decoration:line-through;text-decoration-color:var(--bad)}
+.imp-tbl tr.imp-del td:last-child{text-decoration:none}
+.imp-tbl tr.imp-new td:last-child{color:var(--ok,#1a7f4b);font-weight:600}
+.imp-tbl tr.imp-same td:last-child{color:var(--muted)}
 .imp-sum{margin:0}.imp-badn{color:var(--bad)}
-.imp-wrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.imp-wrap{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px}
 .imp-tbl{width:100%;border-collapse:collapse;font-size:13px}
 .imp-tbl th{position:sticky;top:0;background:var(--surface-2);text-align:left;padding:6px 8px;font-weight:600;color:var(--muted)}
 .imp-tbl td{padding:6px 8px;border-top:1px solid var(--line)}
@@ -389,11 +391,7 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
     <label for="impFile" class="imp-f"><span>File Excel (.xlsx)</span><input type="file" id="impFile" accept=".xlsx"></label>
     <p class="err" id="impErr" role="alert" hidden style="margin:0"></p>
     <div id="impBody"></div>
-    <div id="impMiss" class="imp-miss" hidden>
-      <label class="imp-chk"><input type="checkbox" id="impDel"><span id="impMissTxt"></span></label>
-      <p class="a-sub" id="impMissList" style="margin:0"></p>
-      <label for="impPw" id="impPwRow" class="imp-f" hidden><span>Mật khẩu xóa</span><input type="password" id="impPw" autocomplete="off" maxlength="100" placeholder="Mật khẩu xóa"></label>
-    </div>
+    <label for="impPw" id="impPwRow" class="imp-f" hidden><span>Mật khẩu xóa (cần vì có thiết bị bị xóa)</span><input type="password" id="impPw" autocomplete="off" maxlength="100" placeholder="Mật khẩu xóa"></label>
   </div>
   <div class="dlg-foot"><span class="spacer"></span><button type="button" class="btn" id="impCancel">Đóng</button><button type="button" class="btn primary" id="impGo" disabled>Nhập vào sổ</button></div>
 </dialog>
@@ -1583,30 +1581,34 @@ function renderImport(){
   var box=$("impBody");box.textContent="";
   var rs=IMP.rows,bad=rs.filter(function(r){return r.err}).length;
   var nNew=rs.filter(function(r){return !r.err&&r.action==="new"}).length,nUp=rs.filter(function(r){return !r.err&&r.action==="update"}).length,nSame=rs.filter(function(r){return !r.err&&r.action==="same"}).length;
-  var miss=IMP.missing||[],delOn=miss.length&&$("impDel").checked;
-  var ok=nNew+nUp+(delOn?miss.length:0);IMP.ok=ok;
-  $("impMiss").hidden=!miss.length;
-  if(miss.length){
-    $("impMissTxt").textContent="Xóa "+miss.length+" thiết bị đang có trong sổ nhưng không có trong file";
-    $("impMissList").textContent=miss.map(function(o){return (TYPES[o.type]?TYPES[o.type].short:"")+" "+o.serial+(PLANTS[o.plant]?" ("+PLANTS[o.plant].short+")":"")}).join(" · ");
-    $("impPwRow").hidden=!(delOn&&S.mode==="sheet");
-  }
-  if(!rs.length){$("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";$("impMiss").hidden=true;return}
-  box.appendChild(h("p",{class:"imp-sum"},[h("b",{text:nNew+" thêm mới"})," · ",h("b",{text:nUp+" cập nhật"})," · "+nSame+" không đổi"].concat(bad?[" · ",h("b",{class:"imp-badn",text:bad+" dòng lỗi (bỏ qua)"})]:[])));
+  var miss=IMP.missing||[];
+  var ok=nNew+nUp+miss.length;IMP.ok=ok;
+  $("impPwRow").hidden=!(miss.length&&S.mode==="sheet");
+  if(!rs.length){$("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";$("impPwRow").hidden=true;return}
+  box.appendChild(h("p",{class:"imp-sum"},[h("b",{text:nNew+" thêm mới"})," · ",h("b",{text:nUp+" cập nhật"})," · "+nSame+" không đổi"].concat(miss.length?[" · ",h("b",{class:"imp-badn",text:miss.length+" xóa"})]:[]).concat(bad?[" · ",h("b",{class:"imp-badn",text:bad+" dòng lỗi (bỏ qua)"})]:[])));
   var tb=h("tbody");
-  rs.slice(0,300).forEach(function(r){
-    tb.appendChild(h("tr",{class:r.err?"imp-bad":""},[
+  function rowOf(r){
+    return h("tr",{class:r.err?"imp-bad":"imp-"+(r.action==="update"?"chg":r.action)},[
       h("td",{text:String(r.line)}),h("td",{text:PLANTS[r.plant]?PLANTS[r.plant].short:"—"}),h("td",{text:TYPES[r.type]?TYPES[r.type].short:"—"}),
-      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{text:r.err||(r.action==="new"?"Thêm mới":(r.action==="update"?"Sửa: "+r.changed.map(function(c){return IMP_LABELS[c.k]+" "+impShow(c.k,c.from)+" → "+impShow(c.k,c.to)}).join("; ")+(r.note2?" ("+r.note2+")":""):"Không thay đổi"))})]));
+      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{text:r.err||(r.action==="new"?"Thêm mới":(r.action==="update"?"Sửa: "+r.changed.map(function(c){return IMP_LABELS[c.k]+" "+impShow(c.k,c.from)+" → "+impShow(c.k,c.to)}).join("; ")+(r.note2?" ("+r.note2+")":""):"Không thay đổi"))})]);
+  }
+  /* Dòng có thay đổi, lỗi, xóa hiện trước; dòng không đổi xuống cuối */
+  rs.filter(function(r){return r.err||r.action!=="same"}).forEach(function(r){tb.appendChild(rowOf(r))});
+  miss.forEach(function(o){
+    tb.appendChild(h("tr",{class:"imp-del"},[
+      h("td",{text:"—"}),h("td",{text:PLANTS[o.plant]?PLANTS[o.plant].short:"—"}),h("td",{text:TYPES[o.type]?TYPES[o.type].short:"—"}),
+      h("td",{text:o.serial||"—"}),h("td",{text:validISO(o.testDate)?fmt(o.testDate):"—"}),h("td",{text:"Đã xóa khỏi sổ (không có trong file)"})]));
   });
+  var sameRows=rs.filter(function(r){return !r.err&&r.action==="same"});
+  sameRows.slice(0,200).forEach(function(r){tb.appendChild(rowOf(r))});
   box.appendChild(h("div",{class:"imp-wrap"},[h("table",{class:"imp-tbl"},[
     h("thead",{},[h("tr",{},["Dòng","Nhà máy","Loại","Số hiệu","Ngày thử","Kết quả kiểm tra"].map(function(t){return h("th",{text:t})}))]),tb])]));
-  if(rs.length>300)box.appendChild(h("p",{class:"a-sub",text:"Chỉ hiển thị 300 dòng đầu, các dòng còn lại vẫn được kiểm tra và nhập."}));
+  if(sameRows.length>200)box.appendChild(h("p",{class:"a-sub",text:"Chỉ hiển thị 200 dòng không thay đổi đầu tiên; mọi dòng có thay đổi, lỗi hay xóa đều được liệt kê đủ ở trên."}));
   $("impGo").disabled=!ok||IMP.busy;$("impGo").textContent=ok?"Áp dụng "+ok+" thay đổi":(rs.length&&!bad&&!miss.length?"Không có gì cần cập nhật":"Không có thay đổi để áp dụng");
 }
 function openImport(){
   if(!S.canWrite)return;
-  IMP.rows=[];IMP.missing=[];IMP.busy=false;$("impDel").checked=false;$("impPw").value="";$("impMiss").hidden=true;$("impFile").value="";$("impErr").hidden=true;$("impBody").textContent="";
+  IMP.rows=[];IMP.missing=[];IMP.busy=false;$("impPw").value="";$("impPwRow").hidden=true;$("impFile").value="";$("impErr").hidden=true;$("impBody").textContent="";
   $("impPlant").value=PLANTS[S.plant]?S.plant:"";
   $("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";
   var d=$("impDlg");try{d.showModal()}catch(e){d.setAttribute("open","")}
@@ -1620,7 +1622,7 @@ function onImpFile(){
   f.arrayBuffer().then(readXlsx).then(function(table){
     var res=parseImport(table,$("impPlant").value);
     if(res.error){impError(res.error);IMP.rows=[];IMP.missing=[]}else{IMP.rows=res.rows;IMP.missing=res.missing}
-    $("impDel").checked=false;$("impPw").value="";
+    $("impPw").value="";
     IMP.table=table;renderImport();
   }).catch(function(){impError("Không đọc được file này. Hãy dùng file .xlsx lưu từ Excel (có thể tải file mẫu bên trên).");IMP.rows=[];renderImport()});
 }
@@ -1628,11 +1630,11 @@ function onImpPlant(){
   if(!IMP.table)return;
   var res=parseImport(IMP.table,$("impPlant").value);
   if(res.error){impError(res.error);IMP.rows=[];IMP.missing=[]}else{impError("");IMP.rows=res.rows;IMP.missing=res.missing}
-  $("impDel").checked=false;renderImport();
+  renderImport();
 }
 function runImport(){
   var list=IMP.rows.filter(function(r){return !r.err&&(r.action==="new"||r.action==="update")});
-  var dels=(IMP.missing&&$("impDel").checked)?IMP.missing.slice():[],pw="";
+  var dels=(IMP.missing||[]).slice(),pw="";
   if((!list.length&&!dels.length)||IMP.busy||!S.canWrite)return;
   if(dels.length&&S.mode==="sheet"){
     if(S.guard!==true){impError("Apps Script trên Google vẫn là bản cũ, chưa có mật khẩu xóa nên trang không cho xóa. Hãy dán Code.gs mới vào Apps Script rồi triển khai “Phiên bản mới”.");return}
@@ -1644,7 +1646,7 @@ function runImport(){
   function fail(ex){
     IMP.busy=false;$("impCancel").disabled=false;
     impError("Dừng lại sau khi lưu "+done+" thay đổi. "+writeErrText(ex)+" Các thay đổi đã lưu vẫn nằm trong sổ; bạn có thể chọn lại cùng file để kiểm tra phần còn lại.");
-    IMP.rows=[];IMP.missing=[];IMP.table=null;$("impFile").value="";$("impBody").textContent="";$("impMiss").hidden=true;$("impGo").textContent="Nhập vào sổ";
+    IMP.rows=[];IMP.missing=[];IMP.table=null;$("impFile").value="";$("impBody").textContent="";$("impPwRow").hidden=true;$("impGo").textContent="Nhập vào sổ";
   }
   (function next(){
     if(done>=total){IMP.busy=false;$("impCancel").disabled=false;closeImport();toast("Đã áp dụng "+done+" thay đổi");return}
@@ -1696,7 +1698,7 @@ function wire(){
   $("f").addEventListener("submit",onSubmit);
   $("btnDel").addEventListener("click",onDelete);
   $("impTpl").addEventListener("click",downloadTemplate);$("impFile").addEventListener("change",onImpFile);$("impPlant").addEventListener("change",onImpPlant);
-  $("impGo").addEventListener("click",runImport);$("impDel").addEventListener("change",renderImport);$("impCancel").addEventListener("click",closeImport);$("impClose").addEventListener("click",closeImport);
+  $("impGo").addEventListener("click",runImport);$("impCancel").addEventListener("click",closeImport);$("impClose").addEventListener("click",closeImport);
   $("impDlg").addEventListener("click",function(e){if(e.target===this)closeImport()});
   $("btnCancel").addEventListener("click",closeDlg);
   $("dlgClose").addEventListener("click",closeDlg);
