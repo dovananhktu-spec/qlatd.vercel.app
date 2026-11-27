@@ -322,6 +322,9 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
 .imp-steps{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--muted)}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
 .imp-f{display:flex;flex-direction:column;gap:6px;font-weight:500}
+.imp-miss{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--bad);border-radius:10px;background:var(--bad-bg)}
+.imp-chk{display:flex;gap:8px;align-items:flex-start;font-weight:600}
+.imp-chk input{width:auto;min-height:0;flex:none;padding:0;margin:3px 0 0}
 .imp-sum{margin:0}.imp-badn{color:var(--bad)}
 .imp-wrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px}
 .imp-tbl{width:100%;border-collapse:collapse;font-size:13px}
@@ -378,14 +381,19 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
   <div class="imp-main">
     <ol class="imp-steps">
       <li>Tải <button type="button" class="linkbtn" id="impTpl">file Excel mẫu</button>, điền mỗi thiết bị một dòng (hoặc dùng file bạn đã xuất ra từ trang này).</li>
-      <li>Cột bắt buộc: <b>Loại thiết bị</b>, <b>Số hiệu</b>, <b>Ngày thử nghiệm</b> (dạng 31/12/2026). Các cột khác có thể bỏ trống.</li>
-      <li>Chọn file bên dưới. Thiết bị đã có trong sổ (cùng nhà máy, loại, số hiệu) sẽ được <b>cập nhật theo file</b>; ô để trống trong file thì giữ nguyên dữ liệu cũ. Ngày thử mới hơn thì lần thử cũ được lưu vào lịch sử.</li>
+      <li>Cột bắt buộc: <b>Loại thiết bị</b>, <b>Số hiệu</b>, <b>Ngày thử nghiệm</b> (dạng 31/12/2026). Cột nào không có trong file thì sổ giữ nguyên.</li>
+      <li>Chọn file bên dưới. Thiết bị đã có trong sổ (cùng nhà máy, loại, số hiệu) sẽ được <b>cập nhật đúng theo file</b>: ô nào bạn sửa hoặc để trống thì sổ đổi theo, và trang báo rõ từng thay đổi trước khi lưu. Ngày thử mới hơn thì lần thử cũ được lưu vào lịch sử.</li>
     </ol>
     <label for="impPlant" class="imp-f"><span>Nhà máy dùng khi file không ghi nhà máy</span>
       <select id="impPlant"><option value="">Không chọn</option><option value="ialy">Nhà máy Ialy</option><option value="ialymr">Nhà máy Ialy mở rộng</option></select></label>
     <label for="impFile" class="imp-f"><span>File Excel (.xlsx)</span><input type="file" id="impFile" accept=".xlsx"></label>
     <p class="err" id="impErr" role="alert" hidden style="margin:0"></p>
     <div id="impBody"></div>
+    <div id="impMiss" class="imp-miss" hidden>
+      <label class="imp-chk"><input type="checkbox" id="impDel"><span id="impMissTxt"></span></label>
+      <p class="a-sub" id="impMissList" style="margin:0"></p>
+      <label for="impPw" id="impPwRow" class="imp-f" hidden><span>Mật khẩu xóa</span><input type="password" id="impPw" autocomplete="off" maxlength="100" placeholder="Mật khẩu xóa"></label>
+    </div>
   </div>
   <div class="dlg-foot"><span class="spacer"></span><button type="button" class="btn" id="impCancel">Đóng</button><button type="button" class="btn primary" id="impGo" disabled>Nhập vào sổ</button></div>
 </dialog>
@@ -1501,27 +1509,32 @@ function impVolt(v){
   if(typeof v==="number")return String(v).replace(".",",")+" kV";
   return String(v==null?"":v).trim();
 }
-/* So khớp với thiết bị đã có (cùng nhà máy, loại, số hiệu): cập nhật theo file, ô trống trong file thì giữ nguyên dữ liệu cũ */
+/* So khớp với thiết bị đã có (cùng nhà máy, loại, số hiệu): sổ được cập nhật đúng theo file. Cột có trong file mà ô để trống thì xóa dữ liệu ô đó. */
 var IMP_LABELS={voltage:"điện áp",location:"vị trí",testDate:"ngày thử",cycle:"chu kỳ",result:"kết quả",report:"số biên bản",lab:"đơn vị thử",note:"ghi chú"};
-function impPlan(r,old){
+function impShow(k,v){
+  if(v===""||v==null)return "trống";
+  if(k==="testDate")return fmt(v);
+  if(k==="result")return v==="fail"?"Không đạt":"Đạt";
+  if(k==="cycle")return v+" tháng";
+  return "“"+v+"”";
+}
+function impPlan(r,old,has){
   if(!old){r.action="new";r.data=null;return}
   var d=Object.assign({},old),changed=[],hist=Array.isArray(old.history)?old.history.slice():[];
+  function ch(k,to){var from=old[k]==null?"":old[k];if(String(from)!==String(to)){d[k]=to;changed.push({k:k,from:from,to:to})}}
   var newer=validISO(old.testDate)?r.testDate>old.testDate:true,same=r.testDate===old.testDate;
-  ["voltage","location","report","lab","note"].forEach(function(k){if(r[k]!==""&&r[k]!==(old[k]||"")){d[k]=r[k];changed.push(k)}});
+  ["voltage","location","report","lab","note"].forEach(function(k){if(has[k])ch(k,r[k])});
   if(newer){
     if(validISO(old.testDate))hist.push({testDate:old.testDate,result:old.result==="fail"?"fail":"pass",report:old.report||"",lab:old.lab||"",cycle:old.cycle||r.cycle});
-    d.testDate=r.testDate;changed.push("testDate");
-    if(r.resultGiven&&r.result!==old.result)changed.push("result");
-    d.result=r.resultGiven?r.result:"pass";
-    if(!r.resultGiven&&old.result!=="pass")changed.push("result");
-    if(r.cycGiven)d.cycle=r.cycle;
-    if(+d.cycle!==+old.cycle)changed.push("cycle");
+    ch("testDate",r.testDate);
+    ch("result",r.resultGiven?r.result:"pass");
+    if(r.cycGiven)ch("cycle",r.cycle);
     d.history=hist;
   }else{
-    if(same&&r.resultGiven&&r.result!==old.result){d.result=r.result;changed.push("result")}
-    if(r.cycGiven&&r.cycle!==+old.cycle){d.cycle=r.cycle;changed.push("cycle")}
+    if(same&&r.resultGiven)ch("result",r.result);
+    if(r.cycGiven)ch("cycle",r.cycle);
   }
-  r.note2=newer?"":(same?"":"Ngày thử trong file cũ hơn trong sổ nên giữ nguyên lần thử mới hơn");
+  r.note2=newer||same?"":"ngày thử trong file cũ hơn trong sổ nên giữ nguyên lần thử mới hơn";
   r.changed=changed;r.old=old;
   if(!changed.length){r.action="same";r.data=null;return}
   d.updatedAt=new Date().toISOString();d.lastAction=newer?"test":"edit";
@@ -1534,7 +1547,8 @@ function parseImport(table,defPlant){
     if(m.serial!==undefined&&m.type!==undefined&&m.testDate!==undefined){hi=r;map=m}
   }
   if(hi<0)return {error:"Không tìm thấy dòng tiêu đề. File cần có tối thiểu các cột: Loại thiết bị, Số hiệu, Ngày thử nghiệm."};
-  var seen={},have={};S.items.forEach(function(o){have[(o.plant||"")+"|"+o.type+"|"+fold(o.serial)]=o});
+  var has={};Object.keys(map).forEach(function(k){has[k]=true});
+  var seen={},have={},fileKeys={};S.items.forEach(function(o){have[(o.plant||"")+"|"+o.type+"|"+fold(o.serial)]=o});
   var today=todayISO(),out=[];
   for(var i=hi+1;i<table.length&&out.length<500;i++){
     var row=table[i]||[];
@@ -1556,33 +1570,43 @@ function parseImport(table,defPlant){
     var row2={line:i+1,err:err,plant:plant,type:type,serial:serial,voltage:impVolt(g("voltage")),location:String(g("location")).trim(),testDate:date,
       cycle:cycGiven&&cyc>=1&&cyc<=60?cyc:(TYPES[type]?TYPES[type].cycle:6),cycGiven:cycGiven,resultGiven:resTxt!=="",result:/khong|fail|hong/.test(resTxt)?"fail":"pass",
       report:String(g("report")).trim(),lab:String(g("lab")).trim(),note:String(g("note")).trim()};
-    if(!err)impPlan(row2,have[key]);
+    if(!err)impPlan(row2,have[key],has);
+    if(serial&&type&&PLANTS[plant])fileKeys[key]=1;
     out.push(row2);
   }
   if(!out.length)return {error:"File không có dòng dữ liệu nào bên dưới dòng tiêu đề."};
-  return {rows:out};
+  var scope={};out.forEach(function(r){if(PLANTS[r.plant])scope[r.plant]=1});
+  var missing=S.items.filter(function(o){return scope[o.plant||""]&&!fileKeys[(o.plant||"")+"|"+o.type+"|"+fold(o.serial)]});
+  return {rows:out,missing:missing};
 }
 function renderImport(){
   var box=$("impBody");box.textContent="";
   var rs=IMP.rows,bad=rs.filter(function(r){return r.err}).length;
   var nNew=rs.filter(function(r){return !r.err&&r.action==="new"}).length,nUp=rs.filter(function(r){return !r.err&&r.action==="update"}).length,nSame=rs.filter(function(r){return !r.err&&r.action==="same"}).length;
-  var ok=nNew+nUp;IMP.ok=ok;
-  if(!rs.length){$("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";return}
+  var miss=IMP.missing||[],delOn=miss.length&&$("impDel").checked;
+  var ok=nNew+nUp+(delOn?miss.length:0);IMP.ok=ok;
+  $("impMiss").hidden=!miss.length;
+  if(miss.length){
+    $("impMissTxt").textContent="Xóa "+miss.length+" thiết bị đang có trong sổ nhưng không có trong file";
+    $("impMissList").textContent=miss.map(function(o){return (TYPES[o.type]?TYPES[o.type].short:"")+" "+o.serial+(PLANTS[o.plant]?" ("+PLANTS[o.plant].short+")":"")}).join(" · ");
+    $("impPwRow").hidden=!(delOn&&S.mode==="sheet");
+  }
+  if(!rs.length){$("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";$("impMiss").hidden=true;return}
   box.appendChild(h("p",{class:"imp-sum"},[h("b",{text:nNew+" thêm mới"})," · ",h("b",{text:nUp+" cập nhật"})," · "+nSame+" không đổi"].concat(bad?[" · ",h("b",{class:"imp-badn",text:bad+" dòng lỗi (bỏ qua)"})]:[])));
   var tb=h("tbody");
   rs.slice(0,300).forEach(function(r){
     tb.appendChild(h("tr",{class:r.err?"imp-bad":""},[
       h("td",{text:String(r.line)}),h("td",{text:PLANTS[r.plant]?PLANTS[r.plant].short:"—"}),h("td",{text:TYPES[r.type]?TYPES[r.type].short:"—"}),
-      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{text:r.err||(r.action==="new"?"Thêm mới":(r.action==="update"?"Cập nhật: "+r.changed.map(function(k){return IMP_LABELS[k]}).join(", ")+(r.note2?" ("+r.note2+")":""):"Không thay đổi"))})]));
+      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{text:r.err||(r.action==="new"?"Thêm mới":(r.action==="update"?"Sửa: "+r.changed.map(function(c){return IMP_LABELS[c.k]+" "+impShow(c.k,c.from)+" → "+impShow(c.k,c.to)}).join("; ")+(r.note2?" ("+r.note2+")":""):"Không thay đổi"))})]));
   });
   box.appendChild(h("div",{class:"imp-wrap"},[h("table",{class:"imp-tbl"},[
     h("thead",{},[h("tr",{},["Dòng","Nhà máy","Loại","Số hiệu","Ngày thử","Kết quả kiểm tra"].map(function(t){return h("th",{text:t})}))]),tb])]));
   if(rs.length>300)box.appendChild(h("p",{class:"a-sub",text:"Chỉ hiển thị 300 dòng đầu, các dòng còn lại vẫn được kiểm tra và nhập."}));
-  $("impGo").disabled=!ok||IMP.busy;$("impGo").textContent=ok?"Áp dụng "+ok+" thay đổi":(rs.length&&!bad?"Không có gì cần cập nhật":"Không có dòng hợp lệ");
+  $("impGo").disabled=!ok||IMP.busy;$("impGo").textContent=ok?"Áp dụng "+ok+" thay đổi":(rs.length&&!bad&&!miss.length?"Không có gì cần cập nhật":"Không có thay đổi để áp dụng");
 }
 function openImport(){
   if(!S.canWrite)return;
-  IMP.rows=[];IMP.busy=false;$("impFile").value="";$("impErr").hidden=true;$("impBody").textContent="";
+  IMP.rows=[];IMP.missing=[];IMP.busy=false;$("impDel").checked=false;$("impPw").value="";$("impMiss").hidden=true;$("impFile").value="";$("impErr").hidden=true;$("impBody").textContent="";
   $("impPlant").value=PLANTS[S.plant]?S.plant:"";
   $("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";
   var d=$("impDlg");try{d.showModal()}catch(e){d.setAttribute("open","")}
@@ -1590,40 +1614,50 @@ function openImport(){
 function closeImport(){if(IMP.busy)return;var d=$("impDlg");try{d.close()}catch(e){d.removeAttribute("open")}}
 function impError(msg){var e=$("impErr");e.textContent=msg;e.hidden=!msg}
 function onImpFile(){
-  var f=$("impFile").files&&$("impFile").files[0];IMP.rows=[];impError("");$("impBody").textContent="";
+  var f=$("impFile").files&&$("impFile").files[0];IMP.rows=[];IMP.missing=[];impError("");$("impBody").textContent="";
   if(!f){renderImport();return}
   if(!/\.xlsx$/i.test(f.name)){impError("Chỉ đọc được file Excel đuôi .xlsx. Nếu là .xls hoặc .csv, hãy mở bằng Excel rồi Lưu thành .xlsx.");renderImport();return}
   f.arrayBuffer().then(readXlsx).then(function(table){
     var res=parseImport(table,$("impPlant").value);
-    if(res.error){impError(res.error);IMP.rows=[]}else IMP.rows=res.rows;
+    if(res.error){impError(res.error);IMP.rows=[];IMP.missing=[]}else{IMP.rows=res.rows;IMP.missing=res.missing}
+    $("impDel").checked=false;$("impPw").value="";
     IMP.table=table;renderImport();
   }).catch(function(){impError("Không đọc được file này. Hãy dùng file .xlsx lưu từ Excel (có thể tải file mẫu bên trên).");IMP.rows=[];renderImport()});
 }
 function onImpPlant(){
   if(!IMP.table)return;
   var res=parseImport(IMP.table,$("impPlant").value);
-  if(res.error){impError(res.error);IMP.rows=[]}else{impError("");IMP.rows=res.rows}
-  renderImport();
+  if(res.error){impError(res.error);IMP.rows=[];IMP.missing=[]}else{impError("");IMP.rows=res.rows;IMP.missing=res.missing}
+  $("impDel").checked=false;renderImport();
 }
 function runImport(){
   var list=IMP.rows.filter(function(r){return !r.err&&(r.action==="new"||r.action==="update")});
-  if(!list.length||IMP.busy||!S.canWrite)return;
+  var dels=(IMP.missing&&$("impDel").checked)?IMP.missing.slice():[],pw="";
+  if((!list.length&&!dels.length)||IMP.busy||!S.canWrite)return;
+  if(dels.length&&S.mode==="sheet"){
+    if(S.guard!==true){impError("Apps Script trên Google vẫn là bản cũ, chưa có mật khẩu xóa nên trang không cho xóa. Hãy dán Code.gs mới vào Apps Script rồi triển khai “Phiên bản mới”.");return}
+    pw=$("impPw").value;if(!pw){impError("Hãy nhập mật khẩu xóa để xóa các thiết bị không có trong file.");$("impPw").focus();return}
+  }
+  var total=list.length+dels.length;
   IMP.busy=true;impError("");$("impGo").disabled=true;$("impCancel").disabled=true;
   var done=0;
+  function fail(ex){
+    IMP.busy=false;$("impCancel").disabled=false;
+    impError("Dừng lại sau khi lưu "+done+" thay đổi. "+writeErrText(ex)+" Các thay đổi đã lưu vẫn nằm trong sổ; bạn có thể chọn lại cùng file để kiểm tra phần còn lại.");
+    IMP.rows=[];IMP.missing=[];IMP.table=null;$("impFile").value="";$("impBody").textContent="";$("impMiss").hidden=true;$("impGo").textContent="Nhập vào sổ";
+  }
   (function next(){
-    if(done>=list.length){
-      IMP.busy=false;$("impCancel").disabled=false;closeImport();toast("Đã áp dụng "+done+" thay đổi");return;
-    }
-    $("impGo").textContent="Đang lưu "+(done+1)+"/"+list.length+"…";
-    var r=list[done],now=new Date().toISOString(),id,data;
-    if(r.action==="update"){id=r.old.id;data=Object.assign({},r.data);delete data.id}
-    else{id=newId();data={plant:r.plant,type:r.type,serial:r.serial,voltage:r.voltage,location:r.location,testDate:r.testDate,cycle:r.cycle,result:r.result,
-      report:r.report,lab:r.lab,note:r.note,history:[],sample:false,createdAt:now,updatedAt:now,lastAction:"add"}}
-    Promise.resolve(store.save(id,data)).then(function(){done++;next()}).catch(function(ex){
-      IMP.busy=false;$("impCancel").disabled=false;
-      impError("Dừng lại sau khi lưu "+done+" dòng. "+writeErrText(ex)+" Các dòng đã lưu vẫn nằm trong sổ; bạn có thể chọn lại cùng file, dòng đã lưu sẽ hiện là “không thay đổi”.");
-      IMP.rows=[];IMP.table=null;$("impFile").value="";$("impBody").textContent="";$("impGo").textContent="Nhập vào sổ";
-    });
+    if(done>=total){IMP.busy=false;$("impCancel").disabled=false;closeImport();toast("Đã áp dụng "+done+" thay đổi");return}
+    $("impGo").textContent="Đang lưu "+(done+1)+"/"+total+"…";
+    var op;
+    if(done>=dels.length){
+      var r=list[done-dels.length],now=new Date().toISOString(),id,data;
+      if(r.action==="update"){id=r.old.id;data=Object.assign({},r.data);delete data.id}
+      else{id=newId();data={plant:r.plant,type:r.type,serial:r.serial,voltage:r.voltage,location:r.location,testDate:r.testDate,cycle:r.cycle,result:r.result,
+        report:r.report,lab:r.lab,note:r.note,history:[],sample:false,createdAt:now,updatedAt:now,lastAction:"add"}}
+      op=store.save(id,data);
+    }else op=store.remove(dels[done].id,pw);
+    Promise.resolve(op).then(function(){done++;next()}).catch(fail);
   })();
 }
 
@@ -1662,7 +1696,7 @@ function wire(){
   $("f").addEventListener("submit",onSubmit);
   $("btnDel").addEventListener("click",onDelete);
   $("impTpl").addEventListener("click",downloadTemplate);$("impFile").addEventListener("change",onImpFile);$("impPlant").addEventListener("change",onImpPlant);
-  $("impGo").addEventListener("click",runImport);$("impCancel").addEventListener("click",closeImport);$("impClose").addEventListener("click",closeImport);
+  $("impGo").addEventListener("click",runImport);$("impDel").addEventListener("change",renderImport);$("impCancel").addEventListener("click",closeImport);$("impClose").addEventListener("click",closeImport);
   $("impDlg").addEventListener("click",function(e){if(e.target===this)closeImport()});
   $("btnCancel").addEventListener("click",closeDlg);
   $("dlgClose").addEventListener("click",closeDlg);
