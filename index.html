@@ -1735,10 +1735,12 @@ function impPlan(r,old,has){
     if(r.cycGiven)ch("cycle",r.cycle);
     d.history=hist;
   }else{
-    if(same&&r.resultGiven)ch("result",r.result);
+    /* Ngày trong file cũ hơn ngày trong sổ: coi là sửa lại ngày đã nhập sai, sổ đổi đúng theo file (không thêm vào lịch sử) */
+    if(!same)ch("testDate",r.testDate);
+    if(r.resultGiven)ch("result",r.result);
     if(r.cycGiven)ch("cycle",r.cycle);
   }
-  r.note2=newer||same?"":"ngày thử trong file cũ hơn trong sổ nên giữ nguyên lần thử mới hơn";
+  r.note2=newer||same?"":"file ghi ngày thử cũ hơn ngày trong sổ, sổ sẽ đổi theo file";
   r.changed=changed;r.old=old;
   if(!changed.length){r.action="same";r.data=null;return}
   d.updatedAt=new Date().toISOString();d.lastAction=newer?"test":"edit";
