@@ -328,6 +328,7 @@ dialog::backdrop{background:rgba(8,14,22,.55)}
 .imp-tbl tr.imp-new td:last-child{color:var(--ok,#1a7f4b);font-weight:600}
 .imp-tbl tr.imp-same td:last-child{color:var(--muted)}
 .imp-sum{margin:0}.imp-badn{color:var(--bad)}
+.imp-lost{color:var(--bad);font-weight:700;text-decoration:underline;text-decoration-thickness:2px}
 .imp-wrap{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px}
 .imp-tbl{width:100%;border-collapse:collapse;font-size:13px}
 .imp-tbl th{position:sticky;top:0;background:var(--surface-2);text-align:left;padding:6px 8px;font-weight:600;color:var(--muted)}
@@ -1722,6 +1723,17 @@ function impShow(k,v){
   if(k==="cycle")return v+" tháng";
   return "“"+v+"”";
 }
+function impLost(c){return c.from!==""&&c.from!=null&&(c.to===""||c.to==null)}
+function impChanges(r){
+  var out=["Sửa: "];
+  r.changed.forEach(function(c,i){
+    if(i)out.push("; ");
+    if(impLost(c))out.push(h("b",{class:"imp-lost",text:"THIẾU "+IMP_LABELS[c.k]+" (web đang có "+impShow(c.k,c.from)+", file để trống)"}));
+    else out.push(IMP_LABELS[c.k]+" "+impShow(c.k,c.from)+" → "+impShow(c.k,c.to));
+  });
+  if(r.note2)out.push(" ("+r.note2+")");
+  return out;
+}
 function impPlan(r,old,has){
   if(!old){r.action="new";r.data=null;return}
   var d=Object.assign({},old),changed=[],hist=Array.isArray(old.history)?old.history.slice():[];
@@ -1790,15 +1802,16 @@ function renderImport(){
   var rs=IMP.rows,bad=rs.filter(function(r){return r.err}).length;
   var nNew=rs.filter(function(r){return !r.err&&r.action==="new"}).length,nUp=rs.filter(function(r){return !r.err&&r.action==="update"}).length,nSame=rs.filter(function(r){return !r.err&&r.action==="same"}).length;
   var miss=IMP.missing||[];
+  var nLost=rs.filter(function(r){return !r.err&&r.action==="update"&&r.changed.some(impLost)}).length;
   var ok=nNew+nUp+miss.length;IMP.ok=ok;
   $("impPwRow").hidden=!(miss.length&&S.mode==="sheet");
   if(!rs.length){$("impGo").disabled=true;$("impGo").textContent="Nhập vào sổ";$("impPwRow").hidden=true;return}
-  box.appendChild(h("p",{class:"imp-sum"},[h("b",{text:nNew+" thêm mới"})," · ",h("b",{text:nUp+" cập nhật"})," · "+nSame+" không đổi"].concat(miss.length?[" · ",h("b",{class:"imp-badn",text:miss.length+" xóa"})]:[]).concat(bad?[" · ",h("b",{class:"imp-badn",text:bad+" dòng lỗi (bỏ qua)"})]:[])));
+  box.appendChild(h("p",{class:"imp-sum"},[h("b",{text:nNew+" thêm mới"})," · ",h("b",{text:nUp+" cập nhật"})," · "+nSame+" không đổi"].concat(miss.length?[" · ",h("b",{class:"imp-badn",text:miss.length+" xóa"})]:[]).concat(bad?[" · ",h("b",{class:"imp-badn",text:bad+" dòng lỗi (bỏ qua)"})]:[]).concat(nLost?[" · ",h("b",{class:"imp-badn",text:nLost+" dòng bị trống dữ liệu so với web"})]:[])));
   var tb=h("tbody");
   function rowOf(r){
     return h("tr",{class:r.err?"imp-bad":"imp-"+(r.action==="update"?"chg":r.action)},[
       h("td",{text:String(r.line)}),h("td",{text:PLANTS[r.plant]?PLANTS[r.plant].short:"—"}),h("td",{text:TYPES[r.type]?TYPES[r.type].short:"—"}),
-      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{text:r.err||(r.action==="new"?"Thêm mới":(r.action==="update"?"Sửa: "+r.changed.map(function(c){return IMP_LABELS[c.k]+" "+impShow(c.k,c.from)+" → "+impShow(c.k,c.to)}).join("; ")+(r.note2?" ("+r.note2+")":""):"Không thay đổi"))})]);
+      h("td",{text:r.serial||"—"}),h("td",{text:r.testDate?fmt(r.testDate):"—"}),h("td",{},r.err?[r.err]:(r.action==="new"?["Thêm mới"]:(r.action==="update"?impChanges(r):["Không thay đổi"])))]);
   }
   /* Dòng có thay đổi, lỗi, xóa hiện trước; dòng không đổi xuống cuối */
   rs.filter(function(r){return r.err||r.action!=="same"}).forEach(function(r){tb.appendChild(rowOf(r))});
