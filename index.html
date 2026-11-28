@@ -795,7 +795,7 @@ function makeSheetStore(url){
 }
 function openGate(msg){
   var g=$("gate");
-  $("gateInfo").textContent=buildInfo();
+  $("gateInfo").textContent="";$("gateInfo").hidden=true;
   $("gateErr").hidden=!msg;$("gateErr").textContent=msg||"";$("gateCode").value="";
   if(!g.open){try{g.showModal()}catch(e){g.setAttribute("open","")}}
   setTimeout(function(){$("gateCode").focus()},30);
@@ -826,7 +826,7 @@ function onSheetError(e){
     openGate(describeErr(e));
     return;
   }
-  S.loaded=true;S.note=describeErr(e)+" ["+buildInfo()+"]";render();
+  S.loaded=true;S.note=describeErr(e);render();
 }
 function newId(){return "e"+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 
